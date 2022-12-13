@@ -31,7 +31,7 @@ RUN conda update -n base -y -c conda-forge conda
 
 RUN conda install -y -c conda-forge \
       openmm \
-      cudatoolkit=${CUDA%.*} \
+      cudatoolkit=${CUDA_VERSION%.*} \
       cuquantum openmpi \
       cuquantum-python
 
