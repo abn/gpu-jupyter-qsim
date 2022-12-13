@@ -1,0 +1,73 @@
+name: Main Workflow
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  container-build:
+    name: Container Image Build (hub:${{ matrix.hub-version }} cuda:${{ matrix.cuda-version }}-${{ matrix.base-image }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        hub-version: ["3.0.0", "2.3.1"]
+        base-image: ["runtime", "devel"]
+        cuda-version: [ "11.7.1", "11.8.0" ]
+        latest: [ "11.7.1" ]
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set outputs
+        id: vars
+        run: |
+          echo "image_tag=hub-${{ matrix.hub-version }}-cuda-${{ matrix.cuda-version }}-${{ matrix.base-image }}-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false
+          swap-storage: true
+
+      - name: Buildah Action
+        id: build-image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: gpu-jupyter-qsim
+          tags: latest ${{ steps.vars.outputs.image_tag }}
+          containerfiles: |
+            ./Containerfile
+          build-args: |
+            CUDA=${{ matrix.cuda-version }}
+            BASE=${{ matrix.base-image }}
+            HUB=${{ matrix.hub-version }}
+          # workaround for https://github.com/pypa/pip/issues/11368
+          extra-args: |
+            --storage-opt=overlay.mount_program=
+
+      - name: Push To quay.io
+        uses: redhat-actions/push-to-registry@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          image: ${{ steps.build-image.outputs.image }}
+          tags: ${{ steps.vars.outputs.image_tag }}
+          registry: quay.io/abn
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Push To quay.io (latest tag)
+        if: ${{ github.ref == 'refs/heads/main' && matrix.latest == matrix.cuda-version && matrix.base-image == 'devel' && matrix.hub-version == '3.0.0' }}
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-image.outputs.image }}
+          tags: latest
+          registry: quay.io/abn
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
