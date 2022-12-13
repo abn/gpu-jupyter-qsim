@@ -23,23 +23,27 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
         curl \
     && rm -rf /var/lib/apt/lists/*
 
+ENV PATH="${CONDA_DIR}/bin:${PATH}"
+
+COPY --from=base-notebook ${CONDA_DIR} ${CONDA_DIR}
+
+RUN conda install -y -c conda-forge \
+      openmm \
+      cudatoolkit
+
+RUN pip install \
+      cirq \
+      cirq[contrib] \
+      pybind11
+
 RUN mkdir ${QSIM_DIR} \
     && curl -sS -L \
         https://api.github.com/repos/quantumlib/qsim/tarball/${QSIM_COMMIT} \
         | tar -xz --strip-components=1 -C ${QSIM_DIR}
 
-ENV PATH="${CONDA_DIR}/bin:${PATH}"
-
-COPY --from=base-notebook ${CONDA_DIR} ${CONDA_DIR}
-
-RUN pip install \
-      cirq \
-      cirq[contrib] \
-      qsimcirq
-
-RUN conda install -y -c conda-forge \
-      openmm \
-      cudatoolkit
+RUN cd ${QSIM_DIR} \
+    && make \
+    && pip install -e .
 
 RUN conda clean -afy \
     && find ${CONDA_DIR} -follow -type f -name '*.a' -delete \
@@ -128,6 +132,9 @@ RUN useradd -l -M -s /bin/bash -N -u "${NB_UID}" "${NB_USER}" \
     && fix-permissions "${CONDA_DIR}" \
     && fix-permissions "${QSIM_DIR}" \
     && fix-permissions /etc/jupyter
+
+# Verify qsim installation
+RUN ${CONDA_DIR}/bin/python -c "import qsimcirq; print(qsimcirq.qsim_gpu)"
 
 # Add SETUID bit to the ldconfig binary so that non-root users can run it.
 RUN chmod u+s /sbin/ldconfig{,.real}
