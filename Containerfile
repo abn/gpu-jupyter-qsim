@@ -27,9 +27,15 @@ ENV PATH="${CONDA_DIR}/bin:${PATH}"
 
 COPY --from=base-notebook ${CONDA_DIR} ${CONDA_DIR}
 
+RUN conda update -n base -y -c conda-forge conda
+
 RUN conda install -y -c conda-forge \
       openmm \
-      cudatoolkit
+      cudatoolkit \
+      cuquantum openmpi \
+      cuquantum-python
+
+ENV CUQUANTUM_DIR=${CONDA_DIR}
 
 RUN pip install \
       cirq \
@@ -69,6 +75,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # Configure environment
 ENV CONDA_DIR=${CONDA_DIR} \
     QSIM_DIR=${QSIM_DIR} \
+    CUQUANTUM_DIR=${CONDA_DIR} \
     SHELL=/bin/bash \
     NB_USER="${NB_USER}" \
     NB_UID=${NB_UID} \
