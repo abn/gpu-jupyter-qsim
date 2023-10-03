@@ -1,10 +1,9 @@
-ARG CUDA=11.7.1
+ARG CUDA=12.1.1
 ARG UBUNTU=22.04
 ARG BASE=runtime
-ARG HUB=3.0.0
+ARG LAB=4.0.6
 
-FROM docker.io/jupyter/base-notebook:hub-${HUB} AS base-notebook
-
+FROM docker.io/jupyter/base-notebook:lab-${LAB} AS base-notebook
 
 FROM docker.io/nvidia/cuda:${CUDA}-cudnn8-devel-ubuntu${UBUNTU} AS build
 
